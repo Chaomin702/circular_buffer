@@ -92,6 +92,11 @@ TEST(CBconstructTest, HandleNoneZeroInput) {
 	for (auto it = cb1.begin(); it != cb1.end(); ++it) {
 		EXPECT_EQ(i++, *it);
 	}
+	cb1.push_back(10);
+	i = 5;
+	for (auto k: cb1) {
+		EXPECT_EQ(i++, k);
+	}
 }
 int _tmain(int argc, _TCHAR* argv[])
 {

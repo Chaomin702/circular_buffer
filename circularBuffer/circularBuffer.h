@@ -3,7 +3,6 @@
 #include <assert.h>
 #include <memory>
 #include <iterator>
-#include <vector>
 template <typename T, typename Alloc = std::allocator<T>>
 class circular_buffer {
 public:

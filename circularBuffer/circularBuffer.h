@@ -15,8 +15,8 @@ public:
 	typedef typename Alloc::const_reference const_reference;
 	typedef typename Alloc::size_type size_type;
 	typedef typename Alloc::difference_type difference_type;
-	explicit circular_buffer(const allocator_type& alloc = allocator_type()) :
-		: array_(0),
+	explicit circular_buffer(const allocator_type& alloc = allocator_type())
+		: array_base_(0),
 		array_size_(0),
 		head_(0),
 		tail_(0),
@@ -166,6 +166,7 @@ public:
 	size_type size()const { return contents_size_; }
 	size_type capacity()const { return array_size_; }
 	bool empty()const { return size() == 0; }
+	bool full()const { return size() == capacity(); }
 	void pop_front() {
 		allocator_.destroy(head_);
 		if (++head_ == array_end_)
@@ -174,7 +175,10 @@ public:
 	}
 	void push_back(const_reference new_value) {
 		assert(tail_ >= array_base_ && tail_ <= array_end_);
-		allocator_.construct(tail_, new_value);
+		if (full())
+			*tail_ = new_value;
+		else
+			allocator_.construct(tail_, new_value);
 		if (++tail_ == array_end_)
 			tail_ = array_base_;
 		if (contents_size_ < array_size_)

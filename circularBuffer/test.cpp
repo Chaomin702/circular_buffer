@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 #include "circularBuffer.h"
 
-
 TEST(CBasicTest, HandleNoneZeroInput)
 {
 	circular_buffer<int> cb(3);
@@ -64,6 +63,34 @@ TEST(CBIndexTest, HandleNoneZeroInput) {
 	for (int i = 0; i < 4; ++i) {
 		EXPECT_EQ(i + 4, cb[0]);
 		cb.pop_front();
+	}
+}
+TEST(CBconstructTest, HandleNoneZeroInput) {
+	circular_buffer<int> cb1(6);
+	for (int i = 1; i < 9; ++i)	//3 4 5 6 7 8
+		cb1.push_back(i);
+	circular_buffer<int> cb2 = cb1;
+	cb2.push_back(9);			//4 5 6 7 8 9
+	int i = 3;
+	for (auto it = cb1.begin(); it != cb1.end(); ++it) {
+		EXPECT_EQ(i++, *it);
+	}
+	i = 4;
+	for (auto it = cb2.begin(); it != cb2.end(); ++it) {
+		EXPECT_EQ(i++, *it);
+	}
+
+	cb1 = cb2;
+	i = 4;
+	for (auto it = cb1.begin(); it != cb1.end(); ++it) {
+		EXPECT_EQ(i++, *it);
+	}
+	cb1.clear();
+	cb2.pop_front();
+	cb1 = cb2;			//5 6 7 8 9
+	i = 5;
+	for (auto it = cb1.begin(); it != cb1.end(); ++it) {
+		EXPECT_EQ(i++, *it);
 	}
 }
 int _tmain(int argc, _TCHAR* argv[])

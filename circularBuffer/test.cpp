@@ -45,6 +45,12 @@ TEST(CBIterator, HandleNoneZeroInput) {
 	for (auto it = cb.begin(); it != cb.end(); ++it) {
 		EXPECT_EQ(i++, *it);
 	}
+	auto b = cb.begin();
+	auto e = b + circular_buffer<int>::difference_type(10);
+	EXPECT_EQ(e, cb.end());
+	auto s = e - circular_buffer<int>::difference_type(10);
+	EXPECT_EQ(s, cb.begin());
+	EXPECT_EQ(6, *s);
 }
 TEST(CBIndexTest, HandleNoneZeroInput) {
 	circular_buffer<int> cb(4);
@@ -64,6 +70,13 @@ TEST(CBIndexTest, HandleNoneZeroInput) {
 		EXPECT_EQ(i + 4, cb[0]);
 		cb.pop_front();
 	}
+}
+TEST(CBfrontbackTest, HandleNoneZeroInput) {
+	circular_buffer<int> cb(5);
+	for (int i = 1; i < 6; ++i)//1 2 3 4 5
+		cb.push_back(i);	
+	EXPECT_EQ(1, cb.front());
+	EXPECT_EQ(5, cb.back());
 }
 TEST(CBconstructTest, HandleNoneZeroInput) {
 	circular_buffer<int> cb1(6);

@@ -15,7 +15,55 @@ public:
 	typedef typename Alloc::const_reference const_reference;
 	typedef typename Alloc::size_type size_type;
 	typedef typename Alloc::difference_type difference_type;
+	explicit circular_buffer(const allocator_type& alloc = allocator_type()) :
+		: array_(0),
+		array_size_(0),
+		head_(0),
+		tail_(0),
+		contents_size_(0),
+		allocator_(alloc) {}
+	explicit circular_buffer(size_type capacity = 1, const allocator_type& alloc = allocator_type())
+		:array_base_(allocator_.allocate(capacity)),
+		array_end_(array_base_ + capacity),
+		array_size_(capacity),
+		head_(array_base_),
+		tail_(array_base_),
+		contents_size_(0),
+		allocator_(alloc) {
+	}
 
+	circular_buffer(const self_type& rhs)
+		:array_size_(rhs.array_size_),
+		contents_size_(rhs.contents_size_),
+		allocator_(rhs.allocator_) {
+		array_base_ = allocator_.allocate(array_size_);
+		array_end_ = array_base_ + array_size_;
+		tail_ = std::uninitialized_copy(rhs.begin(), rhs.end(), array_base_);
+		if (tail_ == array_end_)
+			tail_ = array_base_;
+		head_ = array_base_;
+	}
+	self_type& operator = (self_type rhs) {
+		swap(rhs);
+		return *this;
+	}
+	void swap(self_type& rhs) noexcept {
+		using std::swap;
+		swap(array_base_, rhs.array_base_);
+		swap(array_end_, rhs.array_end_);
+		swap(array_size_, rhs.array_size_);
+		swap(head_, rhs.head_);
+		swap(tail_, rhs.tail_);
+		swap(contents_size_, rhs.contents_size_);
+	}
+	~circular_buffer() {
+		if (array_base_) {
+			for (auto it = begin(); it != end(); ++it) {
+				allocator_.destroy(&*it);
+			}
+			allocator_.deallocate(array_base_, array_size_);
+		}
+	}
 	template <typename E>
 	class iterator_ : public std::iterator<std::random_access_iterator_tag, E> {
 	public:
@@ -30,7 +78,7 @@ public:
 			swap(rhs);
 			return *this;
 		}
-		void swap(const self_type& rhs) {
+		void swap(self_type& rhs) {
 			std::swap(buf_, rhs.buf_);
 			std::swap(pos_, rhs.pos_);
 		}
@@ -52,28 +100,44 @@ public:
 			++(*this);
 			return temp;
 		}
-		bool operator==(const self_type& rhs) {
+		bool operator==(const self_type& rhs)const {
 			return buf_ == rhs.buf_ && pos_ == rhs.pos_;
 		}
-		bool operator!=(const self_type& rhs) {
+		bool operator!=(const self_type& rhs)const {
 			return !operator==(rhs);
 		}
-		self_type operator-(const difference_type n) {
-			return self_type(buf_, pos - n);
-		}
-		difference_type operator-(const self_type& rhs) {
+
+		difference_type operator-(const self_type& rhs)const {
 			return linearize_pointer(*this) - linearize_pointer(rhs);
 		}
-		self_type operator+(const difference_type n) {
-			return linearize_pointer(*this) + linearize_pointer(rhs);
+		self_type& operator+=(const difference_type n) {
+			if (n > 0) {
+				pos_ = buf_->add(pos_, n);
+				if (pos_ == buf_->tail_)
+					pos_ = 0;
+			}else if(n < 0) {
+				*this -= -n;
+			}
+			return *this;
 		}
-		difference_type operator+(const self_type& rhs) {
-			return linearize_pointer(*this) + linearize_pointer(rhs);
+		self_type& operator-=(const difference_type n) {
+			if (n > 0) {
+				pos_ = buf_->sub(pos_ == 0 ? buf_->tail_ : pos_, n);
+			}else if(n <0){
+				*this += -n;
+			}
+			return *this;
 		}
-		bool operator<(const self_type&rhs) {
+		self_type operator+(const difference_type n)const {
+			return self_type(*this) += n;
+		}
+		self_type operator-(const difference_type n)const {
+			return self_type(*this) -= n;
+		}
+		bool operator<(const self_type&rhs)const {
 			return linearize_pointer(*this) < linearize_pointer(rhs);
 		}
-		bool operator>(const self_type&rhs) {
+		bool operator>(const self_type&rhs)const {
 			return rhs < *this;
 		}
 		pointer linearize_pointer(const self_type& it)const {		//for circular memory, we need linearize it
@@ -85,33 +149,6 @@ public:
 		const circular_buffer_type*  buf_;
 		pointer  pos_;
 	};
-	explicit circular_buffer(const allocator_type& alloc = allocator_type()):
-		: array_(0), 
-		array_size_(0), 
-		head_(0), 
-		tail_(0), 
-		contents_size_(0), 
-		allocator_(alloc) {}
-	explicit circular_buffer(size_type capacity = 1, const allocator_type& alloc = allocator_type())
-		:array_base_(allocator_.allocate(capacity)), 
-		array_end_(array_base_+capacity), 
-		array_size_(capacity), 
-		head_(array_base_), 
-		tail_(array_base_), 
-		contents_size_(0), 
-		allocator_(alloc) {}
-
-	circular_buffer(const self_type& rhs)
-		:array_size_(rhs.array_size_),
-		contents_size_(rhs.contents_size_),
-		allocator_(rhs.allocator_){
-		array_base_ = allocator_.allocate(array_size_);
-		array_end_ = array_base_ + array_size_;
-		tail_ = std::uninitialized_copy(rhs.begin(), rhs.end(), array_base_);
-		if (tail_ == array_end_)
-			tail_ = array_base_;
-		head_ = array_base_;
-	}
 	typedef iterator_<value_type> iterator;
 	typedef iterator_<const value_type> const_iterator;
 	iterator begin() {
@@ -126,19 +163,8 @@ public:
 	const_iterator end()const {
 		return const_iterator(this, 0);
 	}
-	self_type& operator = (self_type rhs) {
-		swap(rhs);
-		return *this;
-	}
-	~circular_buffer() {
-		if (array_base_) {
-			for (auto it = begin(); it != end(); ++it) {
-				allocator_.destroy(&*it);
-			}
-			allocator_.deallocate(array_base_, array_size_);
-		}
-	}
 	size_type size()const { return contents_size_; }
+	size_type capacity()const { return array_size_; }
 	bool empty()const { return size() == 0; }
 	void pop_front() {
 		allocator_.destroy(head_);
@@ -158,15 +184,6 @@ public:
 		if (head_ == array_end_)
 			head_ = array_base_;
 	}
-	void swap(self_type& rhs) noexcept {
-		using std::swap;
-		swap(array_base_, rhs.array_base_);
-		swap(array_end_, rhs.array_end_);
-		swap(array_size_, rhs.array_size_);
-		swap(head_, rhs.head_);
-		swap(tail_, rhs.tail_);
-		swap(contents_size_, rhs.contents_size_);
-	}
 	const_reference top()const {
 		return *head_;
 	}
@@ -177,6 +194,18 @@ public:
 	reference operator[](size_type index) {
 		return const_cast<T&>(const_cast<const circular_buffer<T>*>(this)->operator[](index));
 	}
+	reference front() {
+		return *head_;
+	}
+	const_reference front()const {
+		return *head_;
+	}
+	reference back() {
+		return *((tail_ == array_base_ ? array_end_ : tail_) - 1);
+	}
+	const_reference back()const {
+		return *((tail_ == array_base_ ? array_end_ : tail_) - 1);
+	}
 	void clear() {
 		for (auto it = begin(); it != end(); ++it) {
 			allocator_.destroy(&*it);
@@ -185,6 +214,14 @@ public:
 		contents_size_ = 0;
 	}
 private:
+	template <class Pointer>
+	Pointer add(Pointer p, difference_type n)const {
+		return p + (n < (array_end_ - p) ? n : n - capacity());
+	}
+	template <class Pointer>
+	Pointer sub(Pointer p, difference_type n)const {
+		return p - (n > (p - array_base_) ? n - capacity() : n);
+	}
 	pointer array_base_;	
 	pointer array_end_;
 	size_type array_size_;

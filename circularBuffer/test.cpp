@@ -1,7 +1,21 @@
 #include <tchar.h>
 #include <gtest/gtest.h>
 #include "circularBuffer.h"
+#include <memory>
 
+class node {
+public:
+	static int global_count;
+	node():num(global_count++){
+		std::cout << "node " << num << " create!" << std::endl;
+	}
+	~node() {
+		std::cout << "node " << num << " destroy!" << std::endl;
+	}
+private:
+	int num;
+};
+int node::global_count = 0;
 TEST(CBasicTest, HandleNoneZeroInput)
 {
 	circular_buffer<int> cb(3);
@@ -110,6 +124,14 @@ TEST(CBconstructTest, HandleNoneZeroInput) {
 	for (auto k: cb1) {
 		EXPECT_EQ(i++, k);
 	}
+}
+TEST(CBshared_ptrTest, HandleNoneZeroInput){
+	circular_buffer<std::shared_ptr<node>> cb(4);
+	for (int i = 0; i < 7; ++i) {	//finally, 3 4 5 6
+		cb.push_back(std::make_shared<node>());
+	}
+	cb.pop_front(); // 4 5 6
+	cb.clear(); //null
 }
 int _tmain(int argc, _TCHAR* argv[])
 {
